@@ -358,6 +358,7 @@ if __name__ == "__main__":
     
     ref = 'Twinkle Twinkle Little Star'
     '''    
+    
     #infile = 'Twinkle.wav'
     infile = 'temp.wav'
     play_video('videos/Intro.mp4')
@@ -366,7 +367,7 @@ if __name__ == "__main__":
         play_video('videos/'+v+'.mp4')
         ref = t
         print(ref)
-        playback('your_turn.mp3')
+        #playback('your_turn.mp3')
         #record audio here
         record_to_file(infile)
         in_text = transcribe_file(infile)
