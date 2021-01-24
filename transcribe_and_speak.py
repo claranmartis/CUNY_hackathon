@@ -22,9 +22,9 @@ Example usage:
     python transcribe_async.py gs://cloud-samples-tests/speech/vr.flac
 """
 
-import argparse
 import io
 import os
+from pygame import time
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "D:\CUNYhackathon\CUNYhackathon-b95ae2fbc665.json"
 
@@ -47,7 +47,7 @@ def transcribe_file(speech_file):
 
     config = speech.RecognitionConfig(
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=8000,
+        sample_rate_hertz=44100,
         language_code="en-US",
     )
 
@@ -58,14 +58,21 @@ def transcribe_file(speech_file):
 
     print("Waiting for operation to complete...")
     response = operation.result(timeout=90)
+    
+    converted_text = []
 
     # Each result is for a consecutive portion of the audio. Iterate through
     # them to get the transcripts for the entire audio file.
     for result in response.results:
         # The first alternative is the most likely one for this portion.
-        print(u"Transcript: {}".format(result.alternatives[0].transcript))
+        transcribed = result.alternatives[0].transcript
+        converted_text.append(transcribed)
+        print(u"Transcript: {}".format(transcribed))
         print("Confidence: {}".format(result.alternatives[0].confidence))
     # [END speech_python_migration_async_response]
+    
+    return_string = ' '.join(converted_text)
+    return(return_string)
 
 
 # [END speech_transcribe_async]
@@ -97,18 +104,117 @@ def synthesize_text(text, outfile):
         request={"input": input_text, "voice": voice, "audio_config": audio_config}
     )
 
+    #make sure the file is not open
+    try:
+        os.remove(outfile)
+        print('overwriting audio file')
+    except:
+        pass
+    
+    
     # The response's audio_content is binary.
-    with open("output.mp3", "wb") as out:
+    with open(outfile, "wb") as out:
         out.write(response.audio_content)
-        print('Audio content written to file "output.mp3"')
+        print('Audio content written to file ' + outfile)
+
+#count occurances of each word
+def word_count(str):
+    counts = dict()
+    words = str.split()
+
+    for word in words:
+        if word in counts:
+            counts[word] += 1
+        else:
+            counts[word] = 1
+
+    return counts
+
+
+#input two strings to compare
+def compare_strings(ref, in_text):
+
+    #remove pounctuations from text
+    import string
+    try:
+        in_text.translate(str.maketrans('','', string.punctuation))
+    except:
+        pass
+
+    #convert both strings to uppercase for comparision
+    ref.upper()
+    in_text.upper()
+    
+    print(ref)
+    print(in_text)
+
+    
+    ref_words = word_count(ref)
+    in_text_words = word_count(in_text)
+    
+    return(ref_words.keys() - in_text_words.keys())
+
+
+#plays .mp3 files
+def playback(filename):
+    
+    from playsound import playsound
+    playsound(filename, True)
+    '''
+    from pygame import mixer
+    
+    mixer.init()
+    mixer.music.load(filename)
+    mixer.music.play()
+    #while mixer.music.get_busy(): # check if the file is playing
+        #pass
+        #time.wait(2000)
+        #print('player busy')
+    mixer.quit()
+    #os.remove(filename)'''
+    return('played audio')
+    
+
+#Record audio as wav file
+def record_wav():
+        
+    import sounddevice as sd
+    from scipy.io.wavfile import write
+    
+    fs = 44100  # Sample rate
+    seconds = 10  # Duration of recording
+    filename = 'recorded.wav'
+    
+    myrecording = sd.rec(int(seconds * fs), samplerate=fs, channels=1)
+    sd.wait()  # Wait until recording is finished
+    write(filename, fs, myrecording)  # Save as WAV file 
+    
+    return filename
+
 
 if __name__ == "__main__":
     
-    infile = '.\commercial_mono.wav'
-    outfile = "resources/test1.mp3"
+    #infile = '.\commercial_mono.wav'
+    #infile = 'Twinkle.wav'
+    infile = record_wav()
+    in_text = transcribe_file(infile)
     
-    transcribe_file(infile)
+    ref = 'Twinkle Twinkle Little Star'
+    diff = compare_strings(ref, in_text)
+    print(diff)
     
-    synthesize_text("hello world", outfile)
+    if(diff != None):
+        for word in diff:
+            outfile = word+".mp3"
+            print('output filename: '+ outfile)
+            speak = 'say ' + word
+            synthesize_text(speak, outfile)
+            time.wait(2000)
+            print(playback(outfile))
+            time.wait(1000)
+    else:
+        print('Good Job!')
+    
+    
     
 
